@@ -31,14 +31,24 @@ if ($Lite) {
   $inlineJs = @()
 }
 
+function Sanitize-InlineJs([string]$Code) {
+  $Code = $Code -replace '(?i)</script', '<\/script'
+  $Code = $Code -replace '(?i)</style', '<\/style'
+  $Code = $Code -replace '(?i)</head', '<\/head'
+  $Code = $Code -replace '(?i)<body', '<\body'
+  return $Code
+}
+
 foreach ($f in $jsFiles) {
   $path = Join-Path $Root $f
   if (-not (Test-Path $path)) { throw "Missing: $f" }
-  $code = [IO.File]::ReadAllText($path, [Text.Encoding]::UTF8) -replace '</script', '<\/script'
+  $code = Sanitize-InlineJs ([IO.File]::ReadAllText($path, [Text.Encoding]::UTF8))
   $inlineJs += "<script>`r`n$code`r`n</script>"
 }
 
-$html = [regex]::Replace($html, '(?s)\s*<script src="lib/xlsx\.full\.min\.js(?:\?[^"]*)?"></script>.*?<script src="js/app\.js(?:\?[^"]*)?"></script>\s*', "`r`n$(($inlineJs -join "`r`n"))`r`n")
+$pattern = '(?s)\s*<script src="lib/xlsx\.full\.min\.js(?:\?[^"]*)?"></script>.*?<script src="js/app\.js(?:\?[^"]*)?"></script>\s*'
+$replacement = "`r`n$(($inlineJs -join "`r`n"))`r`n"
+$html = (New-Object System.Text.RegularExpressions.Regex($pattern)).Replace($html, $replacement, 1)
 [IO.File]::WriteAllText($OutFile, $html, [Text.UTF8Encoding]::new($false))
 '' | Set-Content (Join-Path $OutDir '.nojekyll') -Encoding ascii
 

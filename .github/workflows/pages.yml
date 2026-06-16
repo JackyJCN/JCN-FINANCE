@@ -23,12 +23,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build standalone site
+      - name: Build site (multi-file, avoids broken standalone inlining)
         run: |
-          pwsh -File scripts/build.ps1
           mkdir -p _site
-          cp dist/index.html _site/index.html
-          cp dist/.nojekyll _site/.nojekyll
+          cp index.html _site/index.html
+          cp -r css js lib _site/
+          echo '' > _site/.nojekyll
 
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -22,7 +22,7 @@ const App = {
 
   withTimeout(promise, ms, fallback) {
     return Promise.race([
-      promise,
+      promise.catch(() => fallback),
       new Promise(resolve => setTimeout(() => resolve(fallback), ms))
     ]);
   },
@@ -39,8 +39,9 @@ const App = {
   },
 
   ensureBootstrapped() {
-    const loading = document.getElementById('appLoading');
-    if (!loading || loading.classList.contains('hidden')) return;
+    const loadingEls = document.querySelectorAll('#appLoading');
+    const stillLoading = [...loadingEls].some(el => !el.classList.contains('hidden'));
+    if (!stillLoading) return;
     this.showEmptyState();
   },
 
@@ -340,6 +341,10 @@ const App = {
   async loadFromStorage() {
     this.setLoading(true);
     try {
+      if (this.isPublicSite() && this.shouldSkipAutoLoad()) {
+        this.showEmptyState();
+        return;
+      }
       const rows = await this.withTimeout(SalesParser.loadRecords(), 8000, null);
       if (rows === null) {
         console.warn('IndexedDB 读取超时');
@@ -370,13 +375,13 @@ const App = {
   },
 
   setLoading(on) {
-    document.getElementById('appLoading')?.classList.toggle('hidden', !on);
+    document.querySelectorAll('#appLoading').forEach(el => el.classList.toggle('hidden', !on));
   },
 
   showEmptyState() {
     this.setLoading(false);
-    document.getElementById('emptyState')?.classList.remove('hidden');
-    document.getElementById('dashboard')?.classList.add('hidden');
+    document.querySelectorAll('#emptyState').forEach(el => el.classList.remove('hidden'));
+    document.querySelectorAll('#dashboard').forEach(el => el.classList.add('hidden'));
   },
 
   /** 数据版本变更时，后台从 bundled Excel 静默升级 */
