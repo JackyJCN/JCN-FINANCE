@@ -1193,12 +1193,37 @@ const DashboardCharts = (() => {
     updateTabControls();
   }
 
+  function clearDashboard() {
+    disposeCharts();
+    state.analysis = null;
+    state.rows = [];
+    state.filters = {};
+    resetViewState();
+
+    ['kpiRevenue', 'kpiCost', 'kpiProfit', 'kpiMargin'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = '—';
+    });
+    ['kpiRevenueSub', 'kpiCostSub', 'kpiProfitSub', 'kpiMarginSub'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = '';
+    });
+
+    const table = document.getElementById('detailTable');
+    if (table) {
+      const tbody = table.querySelector('tbody');
+      if (tbody) tbody.innerHTML = '';
+    }
+    const pageInfo = document.getElementById('detailPageInfo');
+    if (pageInfo) pageInfo.textContent = '';
+  }
+
   function onThemeChange() {
     disposeCharts();
     if (state.analysis) renderActiveTab();
   }
 
-  return { init, refresh, exportCsv, onThemeChange, resetViewState, getState: () => state };
+  return { init, refresh, exportCsv, onThemeChange, resetViewState, clearDashboard, getState: () => state };
 })();
 
 document.addEventListener('DOMContentLoaded', () => DashboardCharts.init());

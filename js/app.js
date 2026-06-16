@@ -60,26 +60,7 @@ const App = {
       document.getElementById(id)?.addEventListener('change', () => this.refreshDashboard());
     });
 
-    document.getElementById('btnResetFilter')?.addEventListener('click', () => {
-      document.getElementById('filterDateStart').value = APP_CONFIG.dataPeriod.start.slice(0, 7);
-      document.getElementById('filterDateEnd').value = APP_CONFIG.dataPeriod.end.slice(0, 7);
-      document.getElementById('filterGranularity').value = 'month';
-      document.getElementById('filterCompareMode').value = 'mom';
-      document.getElementById('filterParetoDim').value = 'customer';
-      document.getElementById('metricRevenue').checked = true;
-      document.getElementById('metricProfit').checked = true;
-      document.getElementById('metricMargin').checked = true;
-
-      const silent = true;
-      this.filterSalesperson?.reset(silent);
-      this.filterCategory?.reset(silent);
-      this.filterCustomer?.reset(silent);
-      this.filterProduct?.reset(silent);
-      FilterMultiSelect.closeAll?.();
-      DashboardCharts.resetViewState?.();
-      this.refreshDashboard();
-      this.toast('筛选条件已重置');
-    });
+    document.getElementById('btnResetFilter')?.addEventListener('click', () => this.clearAllData());
 
     document.getElementById('btnExportCsv')?.addEventListener('click', () => {
       const filters = this.getFilters();
@@ -264,6 +245,66 @@ const App = {
     this.toast('设置已保存');
   },
 
+  shouldSkipAutoLoad() {
+    return localStorage.getItem('dashboardSkipAutoLoad') === '1';
+  },
+
+  resetFilters() {
+    document.getElementById('filterDateStart').value = APP_CONFIG.dataPeriod.start.slice(0, 7);
+    document.getElementById('filterDateEnd').value = APP_CONFIG.dataPeriod.end.slice(0, 7);
+    document.getElementById('filterGranularity').value = 'month';
+    document.getElementById('filterCompareMode').value = 'mom';
+    document.getElementById('filterParetoDim').value = 'customer';
+    document.getElementById('metricRevenue').checked = true;
+    document.getElementById('metricProfit').checked = true;
+    document.getElementById('metricMargin').checked = true;
+
+    const silent = true;
+    this.filterSalesperson?.reset(silent);
+    this.filterCategory?.reset(silent);
+    this.filterCustomer?.reset(silent);
+    this.filterProduct?.reset(silent);
+    FilterMultiSelect.closeAll?.();
+    DashboardCharts.resetViewState?.();
+  },
+
+  async clearAllData() {
+    const hasData = this.allRows.length > 0 ||
+      document.getElementById('dashboard')?.classList.contains('hidden') === false;
+    if (!hasData) {
+      this.toast('当前没有可清空的数据', 'error');
+      return;
+    }
+    if (!confirm('确定清空已导入的销售数据？\n\n清空后将返回欢迎页，需要重新导入 Excel 才能继续分析。')) return;
+
+    this.toast('正在清空…');
+
+    try {
+      await SalesParser.clearRecords();
+    } catch (err) {
+      console.warn('清空 IndexedDB 失败', err);
+    }
+
+    localStorage.setItem('dashboardSkipAutoLoad', '1');
+    this.allRows = [];
+    this.importWarnings = [];
+    this.pendingImport = null;
+    this.resetFilters();
+    DashboardCharts.clearDashboard?.();
+
+    const aiReport = document.getElementById('aiReport');
+    if (aiReport) aiReport.innerHTML = '';
+    AIInsights.resetEnhanced?.();
+
+    this.filterSalesperson?.setOptions([]);
+    this.filterCategory?.setOptions([]);
+    this.filterCustomer?.setItems([]);
+    this.filterProduct?.setItems([]);
+
+    this.showEmptyState();
+    this.toast('已清空销售数据，已返回欢迎页');
+  },
+
   async loadFromStorage() {
     this.setLoading(true);
     try {
@@ -301,6 +342,7 @@ const App = {
 
   /** 数据版本变更时，后台从 bundled Excel 静默升级 */
   async tryUpgradeBundledData() {
+    if (this.shouldSkipAutoLoad()) return false;
     const url = APP_CONFIG.excelSource?.bundledUrl;
     if (!url || location.protocol === 'file:') return false;
     try {
@@ -323,6 +365,10 @@ const App = {
 
   /** IndexedDB 无数据时，自动加载 data/ 目录下的 Excel（需通过本地服务器访问） */
   async loadBundledData() {
+    if (this.shouldSkipAutoLoad()) {
+      this.showEmptyState();
+      return;
+    }
     const url = APP_CONFIG.excelSource?.bundledUrl;
     if (!url) {
       this.showEmptyState();
@@ -505,6 +551,7 @@ const App = {
   },
 
   setData(rows, meta) {
+    localStorage.removeItem('dashboardSkipAutoLoad');
     this.setLoading(false);
     this.allRows = rows;
     document.getElementById('emptyState').classList.add('hidden');

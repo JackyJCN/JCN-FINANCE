@@ -2,6 +2,7 @@
  * 销售经营分析看板 — 全局配置
  */
 const APP_CONFIG = {
+  buildVersion: '20260616-clear-data',
   appName: '销售经营分析看板',
   companyName: '上海伊创刀具有限公司',
   brand: '澳克泰 ACHTECK 一级代理',

@@ -18,7 +18,7 @@ $buildTag = Get-Date -Format 'yyyyMMdd-HHmm'
 $html = $html -replace '(<meta name="viewport"[^>]*>)', "`$1`r`n  <meta name=`"dashboard-build`" content=`"$buildTag`">"
 
 $css = [IO.File]::ReadAllText((Join-Path $Root 'css\dashboard.css'), [Text.Encoding]::UTF8)
-$html = [regex]::Replace($html, '<link rel="stylesheet" href="css/dashboard.css">', "<style>`r`n$css`r`n</style>")
+$html = [regex]::Replace($html, '<link rel="stylesheet" href="css/dashboard\.css(?:\?[^"]*)?">', "<style>`r`n$css`r`n</style>")
 
 if ($Lite) {
   $jsFiles = @('js\config.js','js\filter-ui.js','js\parser.js','js\analytics.js','js\charts.js','js\ai-insights.js','js\app.js')
@@ -38,7 +38,7 @@ foreach ($f in $jsFiles) {
   $inlineJs += "<script>`r`n$code`r`n</script>"
 }
 
-$html = [regex]::Replace($html, '(?s)\s*<script src="lib/xlsx\.full\.min\.js"></script>.*?<script src="js/app\.js"></script>\s*', "`r`n$(($inlineJs -join "`r`n"))`r`n")
+$html = [regex]::Replace($html, '(?s)\s*<script src="lib/xlsx\.full\.min\.js(?:\?[^"]*)?"></script>.*?<script src="js/app\.js(?:\?[^"]*)?"></script>\s*', "`r`n$(($inlineJs -join "`r`n"))`r`n")
 [IO.File]::WriteAllText($OutFile, $html, [Text.UTF8Encoding]::new($false))
 '' | Set-Content (Join-Path $OutDir '.nojekyll') -Encoding ascii
 
