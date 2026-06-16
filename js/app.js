@@ -63,13 +63,22 @@ const App = {
     document.getElementById('btnResetFilter')?.addEventListener('click', () => {
       document.getElementById('filterDateStart').value = APP_CONFIG.dataPeriod.start.slice(0, 7);
       document.getElementById('filterDateEnd').value = APP_CONFIG.dataPeriod.end.slice(0, 7);
-      this.filterSalesperson?.reset();
-      this.filterCategory?.reset();
-      this.filterCustomer?.reset();
-      this.filterProduct?.reset();
-      FilterMultiSelect.closeAll?.();
+      document.getElementById('filterGranularity').value = 'month';
       document.getElementById('filterCompareMode').value = 'mom';
+      document.getElementById('filterParetoDim').value = 'customer';
+      document.getElementById('metricRevenue').checked = true;
+      document.getElementById('metricProfit').checked = true;
+      document.getElementById('metricMargin').checked = true;
+
+      const silent = true;
+      this.filterSalesperson?.reset(silent);
+      this.filterCategory?.reset(silent);
+      this.filterCustomer?.reset(silent);
+      this.filterProduct?.reset(silent);
+      FilterMultiSelect.closeAll?.();
+      DashboardCharts.resetViewState?.();
       this.refreshDashboard();
+      this.toast('筛选条件已重置');
     });
 
     document.getElementById('btnExportCsv')?.addEventListener('click', () => {

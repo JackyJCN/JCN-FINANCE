@@ -72,17 +72,18 @@ const FilterMultiSelect = (() => {
       updateTrigger();
     }
 
-    function selectAll() {
+    function selectAll(silent) {
       list.querySelectorAll('input[type=checkbox]').forEach(cb => { cb.checked = true; });
       updateTrigger();
-      onChange?.();
+      panel.classList.add('hidden');
+      if (!silent) onChange?.();
     }
 
-    function clearAll() {
+    function clearAll(silent) {
       list.querySelectorAll('input[type=checkbox]').forEach(cb => { cb.checked = false; });
       updateTrigger();
       panel.classList.add('hidden');
-      onChange?.();
+      if (!silent) onChange?.();
     }
 
     function selectOnly(value) {
@@ -94,8 +95,9 @@ const FilterMultiSelect = (() => {
       panel.classList.add('hidden');
     }
 
-    function reset() {
-      clearAll();
+    function reset(silent) {
+      if (state.values.length) selectAll(silent);
+      else clearAll(silent);
     }
 
     trigger.addEventListener('click', (e) => {
@@ -203,11 +205,12 @@ const FilterSearchSelect = (() => {
       state.items = items;
     }
 
-    function reset() {
+    function reset(silent) {
       input.value = '';
       delete input.dataset.value;
       state.highlight = -1;
       dropdown.classList.add('hidden');
+      if (!silent) onChange?.();
     }
 
     function closeDropdown() {

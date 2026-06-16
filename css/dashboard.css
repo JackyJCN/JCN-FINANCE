@@ -235,7 +235,19 @@ body {
   box-shadow: var(--neu-raised);
   border: none;
 }
-.empty-card h2 { margin-top: 0; font-weight: 700; }
+.empty-welcome {
+  margin: 0 0 8px;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--primary);
+  letter-spacing: 0.02em;
+}
+.empty-subtitle {
+  margin: 0 0 16px;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+.empty-card h2 { margin: 0 0 12px; font-weight: 700; font-size: 1.1rem; }
 .empty-card code {
   padding: 2px 8px;
   border-radius: 8px;

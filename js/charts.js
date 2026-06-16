@@ -1183,12 +1183,22 @@ const DashboardCharts = (() => {
     renderDetailTable(analysis.filtered);
   }
 
+  function resetViewState() {
+    state.detailPage = 1;
+    state.detailSort = { field: 'salesDate', dir: 'desc' };
+    state.activeTab = 'compare';
+    document.querySelectorAll('.tab-bar .tab').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.tab === 'compare');
+    });
+    updateTabControls();
+  }
+
   function onThemeChange() {
     disposeCharts();
     if (state.analysis) renderActiveTab();
   }
 
-  return { init, refresh, exportCsv, onThemeChange, getState: () => state };
+  return { init, refresh, exportCsv, onThemeChange, resetViewState, getState: () => state };
 })();
 
 document.addEventListener('DOMContentLoaded', () => DashboardCharts.init());
