@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>销售经营分析看板 — 伊创财务分析</title>
+  <link rel="stylesheet" href="css/dashboard.css">
+</head>
+<body>
+  <header class="header">
+    <div class="header-left">
+      <h1>销售经营分析看板</h1>
+      <span class="subtitle">上海伊创刀具有限公司</span>
+    </div>
+    <div class="header-actions">
+      <button type="button" id="btnImport" class="btn btn-primary">导入 Excel</button>
+      <button type="button" id="btnSettings" class="btn btn-secondary">设置</button>
+      <button type="button" id="btnTheme" class="theme-toggle" aria-label="切换浅色/深色主题" title="切换浅色/深色主题">
+        <span class="theme-toggle-track" aria-hidden="true">
+          <span class="theme-icon theme-icon-sun">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+          </span>
+          <span class="theme-icon theme-icon-moon">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+          </span>
+          <span class="theme-toggle-knob"></span>
+        </span>
+        <span class="theme-toggle-text" id="themeToggleText">浅色</span>
+      </button>
+    </div>
+    <input type="file" id="fileInput" accept=".xlsx,.xls" hidden>
+  </header>
+
+  <!-- 加载中（刷新时先显示，避免空态弹窗闪现） -->
+  <section id="appLoading" class="app-loading">
+    <p class="app-loading-text">正在加载数据…</p>
+  </section>
+
+  <!-- 空态引导 -->
+  <section id="emptyState" class="empty-state hidden">
+    <div class="empty-card">
+      <h2>开始分析</h2>
+      <p>导入 <code>2025.6.1-2026.5.31.xlsx</code> 即可生成 KPI 与图表。</p>
+      <div class="empty-actions">
+        <button type="button" class="btn btn-primary" id="btnImportEmpty">选择 Excel 文件</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 主看板（有数据后显示） -->
+  <main id="dashboard" class="dashboard hidden">
+    <!-- 筛选器 -->
+    <section class="filters panel">
+      <div class="filter-row">
+        <label>日期 <input type="month" id="filterDateStart"> ~ <input type="month" id="filterDateEnd"></label>
+        <div class="ms-filter" id="filterSalespersonWrap">
+          <span class="ms-label">业务员</span>
+          <div class="ms-control">
+            <button type="button" class="ms-trigger" id="filterSalespersonBtn">全部</button>
+            <div class="ms-dropdown hidden">
+              <div class="ms-toolbar">
+                <button type="button" data-act="all">全选</button>
+                <button type="button" data-act="clear">清空</button>
+                <span class="ms-hint">可多选；点「仅选」为单选</span>
+              </div>
+              <div class="ms-list" id="filterSalespersonList"></div>
+            </div>
+          </div>
+        </div>
+        <div class="ms-filter" id="filterCategoryWrap">
+          <span class="ms-label">客户类别</span>
+          <div class="ms-control">
+            <button type="button" class="ms-trigger" id="filterCategoryBtn">全部</button>
+            <div class="ms-dropdown hidden">
+              <div class="ms-toolbar">
+                <button type="button" data-act="all">全选</button>
+                <button type="button" data-act="clear">清空</button>
+                <span class="ms-hint">可多选；点「仅选」为单选</span>
+              </div>
+              <div class="ms-list" id="filterCategoryList"></div>
+            </div>
+          </div>
+        </div>
+        <div class="ss-filter" id="filterCustomerWrap">
+          <span class="ss-label">客户</span>
+          <div class="ss-control">
+            <input type="text" class="ss-input" id="filterCustomerInput" placeholder="编码/名称" autocomplete="off">
+            <div class="ss-dropdown hidden"></div>
+          </div>
+        </div>
+        <div class="ss-filter" id="filterProductWrap">
+          <span class="ss-label">商品</span>
+          <div class="ss-control">
+            <input type="text" class="ss-input" id="filterProductInput" placeholder="商品编号" autocomplete="off">
+            <div class="ss-dropdown hidden"></div>
+          </div>
+        </div>
+        <button type="button" id="btnResetFilter" class="btn btn-ghost">重置</button>
+      </div>
+    </section>
+
+    <!-- KPI -->
+    <section class="kpi-grid" id="kpiGrid">
+      <div class="kpi-card"><span class="kpi-label">收入</span><span class="kpi-value" id="kpiRevenue">—</span><span class="kpi-sub" id="kpiRevenueSub"></span></div>
+      <div class="kpi-card"><span class="kpi-label">成本</span><span class="kpi-value" id="kpiCost">—</span><span class="kpi-sub" id="kpiCostSub"></span></div>
+      <div class="kpi-card"><span class="kpi-label">毛利</span><span class="kpi-value" id="kpiProfit">—</span><span class="kpi-sub" id="kpiProfitSub"></span></div>
+      <div class="kpi-card"><span class="kpi-label">毛利率</span><span class="kpi-value" id="kpiMargin">—</span><span class="kpi-sub" id="kpiMarginSub"></span></div>
+    </section>
+
+    <div class="dashboard-body">
+      <!-- 分析 Tab -->
+      <section class="panel">
+        <div class="tab-bar">
+          <button class="tab active" data-tab="compare">同比环比</button>
+          <button class="tab" data-tab="trend">趋势</button>
+          <button class="tab" data-tab="structure">结构</button>
+          <button class="tab" data-tab="pareto">帕累托</button>
+        </div>
+        <div class="tab-controls">
+          <label id="granularityWrap">粒度
+            <select id="filterGranularity">
+              <option value="month">月</option>
+              <option value="quarter">季</option>
+              <option value="year">年</option>
+            </select>
+          </label>
+          <label id="compareModeWrap">对比
+            <select id="filterCompareMode">
+              <option value="mom">环比</option>
+              <option value="yoy">同比</option>
+            </select>
+          </label>
+          <div id="compareMetricsWrap" class="metric-toggles">
+            <span class="metric-toggles-label">显示</span>
+            <label><input type="checkbox" id="metricRevenue" checked> 收入</label>
+            <label><input type="checkbox" id="metricProfit" checked> 毛利</label>
+            <label><input type="checkbox" id="metricMargin" checked> 毛利率</label>
+          </div>
+          <label id="paretoDimWrap" class="hidden">维度
+            <select id="filterParetoDim">
+              <option value="customer">客户</option>
+              <option value="product">商品编号</option>
+            </select>
+          </label>
+        </div>
+        <div id="chartMain" class="chart-box"></div>
+        <div id="chartSecondary" class="chart-box chart-sm"></div>
+        <div id="compareTableWrap" class="table-wrap"></div>
+      </section>
+
+      <!-- 明细表 -->
+      <section class="panel">
+        <div class="panel-header">
+          <h3>明细数据</h3>
+          <button type="button" id="btnExportCsv" class="btn btn-ghost">导出 CSV</button>
+        </div>
+        <div class="table-wrap" id="detailTableWrap"></div>
+        <div class="pagination" id="detailPagination"></div>
+      </section>
+    </div>
+
+    <!-- AI 解读（全宽底部） -->
+    <section class="ai-panel panel">
+      <div class="panel-header">
+        <h3>AI 专业解读</h3>
+        <button type="button" id="btnCopyReport" class="btn btn-ghost">复制</button>
+      </div>
+      <div class="ai-panel-toolbar">
+        <div class="ai-prompt-wrap hidden" id="aiPromptWrap">
+          <label class="ai-prompt-label" for="aiUserPrompt">分析需求（可选）</label>
+          <textarea id="aiUserPrompt" class="ai-prompt-input" rows="2" placeholder="例如：重点分析 Top10 客户毛利率变化，并给出下季度报价策略…"></textarea>
+        </div>
+        <button type="button" id="btnAiEnhance" class="btn btn-primary ai-enhance-btn hidden">AI 增强分析</button>
+        <button type="button" id="btnAiClear" class="btn btn-ghost ai-clear-btn hidden">清空 AI 分析</button>
+      </div>
+      <div id="aiReport" class="ai-report"></div>
+      <div id="aiEnhanced" class="ai-report-enhanced hidden"></div>
+    </section>
+  </main>
+
+  <!-- 列映射弹窗 -->
+  <dialog id="mappingDialog" class="modal">
+    <form method="dialog">
+      <h2>列映射向导</h2>
+      <p class="hint">请确认 Excel 列与系统字段的对应关系</p>
+      <div id="mappingForm" class="mapping-form"></div>
+      <div id="mappingPreview" class="mapping-preview"></div>
+      <div id="mappingErrors" class="errors"></div>
+      <div class="modal-actions">
+        <button type="button" id="btnMappingCancel" class="btn btn-ghost">取消</button>
+        <button type="submit" id="btnMappingConfirm" class="btn btn-primary">确认导入</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 设置弹窗 -->
+  <dialog id="settingsDialog" class="modal">
+    <form method="dialog">
+      <h2>设置</h2>
+      <div class="modal-section">
+        <h3 class="modal-section-title">AI API 增强分析</h3>
+        <div class="modal-section-body">
+          <label class="form-field">
+            <span class="field-label">Provider</span>
+            <select id="aiProvider">
+              <option value="openai">OpenAI 兼容</option>
+              <option value="deepseek">DeepSeek</option>
+              <option value="qwen">通义千问</option>
+              <option value="custom">自定义</option>
+            </select>
+          </label>
+          <label class="form-field">
+            <span class="field-label">Base URL</span>
+            <input type="url" id="aiBaseUrl" placeholder="https://api.openai.com/v1">
+          </label>
+          <label class="form-field" id="aiModelSelectWrap">
+            <span class="field-label">Model</span>
+            <select id="aiModel"></select>
+          </label>
+          <label class="form-field hidden" id="aiModelCustomWrap">
+            <span class="field-label">自定义模型 ID</span>
+            <input type="text" id="aiModelCustom" placeholder="小写模型 ID，如 qwen3.7-max">
+          </label>
+          <label class="form-field">
+            <span class="field-label">API Key</span>
+            <input type="password" id="aiApiKey" autocomplete="off" placeholder="sk-...">
+          </label>
+        </div>
+      </div>
+      <p class="hint">API Key 仅保存在浏览器 localStorage。DeepSeek: https://api.deepseek.com/v1 | 通义: https://dashscope.aliyuncs.com/compatible-mode/v1</p>
+      <div class="modal-actions">
+        <button type="button" id="btnSettingsCancel" class="btn btn-ghost">取消</button>
+        <button type="submit" class="btn btn-primary">保存</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="lib/xlsx.full.min.js"></script>
+  <script src="lib/echarts.min.js"></script>
+  <script src="js/config.js"></script>
+  <script src="js/filter-ui.js"></script>
+  <script src="js/parser.js"></script>
+  <script src="js/analytics.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/ai-insights.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

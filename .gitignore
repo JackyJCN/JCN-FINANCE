@@ -1,0 +1,17 @@
+# build output
+dist/
+github-single/
+github-pages/
+
+# temp deploy clones
+_*/
+
+# data (keep folder, ignore excel)
+data/*.xlsx
+data/*.xls
+scripts/*.xlsx
+
+# OS / IDE
+Thumbs.db
+.DS_Store
+*.log
