@@ -1218,12 +1218,19 @@ const DashboardCharts = (() => {
     if (pageInfo) pageInfo.textContent = '';
   }
 
+  let inited = false;
+
+  function ensureInit() {
+    if (inited) return;
+    if (typeof echarts === 'undefined') return;
+    init();
+    inited = true;
+  }
+
   function onThemeChange() {
     disposeCharts();
     if (state.analysis) renderActiveTab();
   }
 
-  return { init, refresh, exportCsv, onThemeChange, resetViewState, clearDashboard, getState: () => state };
+  return { init: ensureInit, ensureInit, refresh, exportCsv, onThemeChange, resetViewState, clearDashboard, getState: () => state };
 })();
-
-document.addEventListener('DOMContentLoaded', () => DashboardCharts.init());

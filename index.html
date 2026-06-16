@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>销售经营分析看板 — 伊创财务分析</title>
-  <link rel="stylesheet" href="css/dashboard.css?v=20260616c">
+  <link rel="stylesheet" href="css/dashboard.css?v=20260616d">
 </head>
 <body>
   <header class="header">
@@ -31,13 +31,13 @@
     <input type="file" id="fileInput" accept=".xlsx,.xls" hidden>
   </header>
 
-  <!-- 加载中（刷新时先显示，避免空态弹窗闪现） -->
-  <section id="appLoading" class="app-loading">
+  <!-- 加载中（仅本地自动加载 Excel 时显示） -->
+  <section id="appLoading" class="app-loading hidden">
     <p class="app-loading-text">正在加载数据…</p>
   </section>
 
-  <!-- 空态 / 欢迎 -->
-  <section id="emptyState" class="empty-state hidden">
+  <!-- 空态 / 欢迎（默认可见，首屏无需等待 JS） -->
+  <section id="emptyState" class="empty-state">
     <div class="empty-card">
       <p class="empty-welcome">欢迎使用经营分析看板</p>
       <h2>开始分析</h2>
@@ -237,14 +237,13 @@
     </form>
   </dialog>
 
-  <script src="lib/xlsx.full.min.js?v=20260616c"></script>
-  <script src="lib/echarts.min.js?v=20260616c"></script>
-  <script src="js/config.js?v=20260616c"></script>
-  <script src="js/filter-ui.js?v=20260616c"></script>
-  <script src="js/parser.js?v=20260616c"></script>
-  <script src="js/analytics.js?v=20260616c"></script>
-  <script src="js/charts.js?v=20260616c"></script>
-  <script src="js/ai-insights.js?v=20260616c"></script>
-  <script src="js/app.js?v=20260616c"></script>
+  <script src="js/config.js?v=20260616d"></script>
+  <script src="js/lazy-libs.js?v=20260616d"></script>
+  <script src="js/filter-ui.js?v=20260616d"></script>
+  <script src="js/parser.js?v=20260616d"></script>
+  <script src="js/analytics.js?v=20260616d"></script>
+  <script src="js/charts.js?v=20260616d"></script>
+  <script src="js/ai-insights.js?v=20260616d"></script>
+  <script src="js/app.js?v=20260616d"></script>
 </body>
 </html>

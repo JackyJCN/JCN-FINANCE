@@ -339,27 +339,51 @@ const App = {
   },
 
   async loadFromStorage() {
-    this.setLoading(true);
+    if (this.isPublicSite()) {
+      await this.loadFromStoragePublic();
+      return;
+    }
+    await this.loadFromStorageLocal();
+  },
+
+  async loadFromStoragePublic() {
+    this.showEmptyState();
+    if (this.shouldSkipAutoLoad()) return;
     try {
-      if (this.isPublicSite() && this.shouldSkipAutoLoad()) {
-        this.showEmptyState();
-        return;
+      const rows = await this.withTimeout(SalesParser.loadRecords(), 1500, []);
+      if (!rows?.length) return;
+      const meta = await this.withTimeout(SalesParser.loadImportMeta(), 800, null);
+      const revisionOk = meta?.dataRevision === APP_CONFIG.dataRevision;
+      const schemaOk = SalesParser.recordsHaveQuantityField(rows);
+      if (rows.length && revisionOk && schemaOk) {
+        await this.setData(rows, meta);
       }
-      const rows = await this.withTimeout(SalesParser.loadRecords(), 8000, null);
+    } catch (err) {
+      console.warn('IndexedDB 加载失败', err);
+    }
+  },
+
+  async loadFromStorageLocal() {
+    const showLoader = this.canAutoLoadBundled() && !this.shouldSkipAutoLoad();
+    if (showLoader) this.setLoading(true);
+    else this.showEmptyState();
+
+    try {
+      const rows = await this.withTimeout(SalesParser.loadRecords(), 3000, null);
       if (rows === null) {
         console.warn('IndexedDB 读取超时');
         this.showEmptyState();
         return;
       }
-      const meta = await this.withTimeout(SalesParser.loadImportMeta(), 5000, null);
+      const meta = await this.withTimeout(SalesParser.loadImportMeta(), 1500, null);
       const revisionOk = meta?.dataRevision === APP_CONFIG.dataRevision;
       const schemaOk = SalesParser.recordsHaveQuantityField(rows);
       if (rows?.length && revisionOk && schemaOk) {
-        this.setData(rows, meta);
+        await this.setData(rows, meta);
         return;
       }
       if (rows?.length) {
-        this.setData(rows, meta);
+        await this.setData(rows, meta);
         if (this.canAutoLoadBundled()) {
           const upgraded = await this.tryUpgradeBundledData();
           if (!upgraded) {
@@ -391,6 +415,7 @@ const App = {
     if (!url || location.protocol === 'file:') return false;
     try {
       const mapping = APP_CONFIG.excelSource.defaultMapping;
+      await LazyLibs.loadXlsx();
       const { records, fileName } = await SalesParser.importFromUrl(
         url,
         APP_CONFIG.excelSource.fileName,
@@ -398,7 +423,7 @@ const App = {
       );
       await SalesParser.saveRecords(records, { fileName, mapping });
       SalesParser.saveMappingToLocal(mapping, fileName);
-      this.setData(records, { fileName });
+      await this.setData(records, { fileName });
       this.toast(`数据已自动更新（${records.length} 笔）`);
       return true;
     } catch (err) {
@@ -425,6 +450,7 @@ const App = {
         return;
       }
       const mapping = APP_CONFIG.excelSource.defaultMapping;
+      await LazyLibs.loadXlsx();
       const { records, fileName } = await SalesParser.importFromUrl(
         url,
         APP_CONFIG.excelSource.fileName,
@@ -432,7 +458,7 @@ const App = {
       );
       await SalesParser.saveRecords(records, { fileName, mapping });
       SalesParser.saveMappingToLocal(mapping, fileName);
-      this.setData(records, { fileName });
+      await this.setData(records, { fileName });
       this.toast(`已自动加载 ${records.length} 笔销售数据`);
     } catch (err) {
       console.warn('自动加载 Excel 失败', err);
@@ -451,7 +477,9 @@ const App = {
       alert('请选择 .xlsx 或 .xls 文件');
       return;
     }
+    this.setLoading(true);
     try {
+      await LazyLibs.loadXlsx();
       const result = await SalesParser.readExcelFile(file);
       const { rows, headers, sheetName } = result;
       if (!headers.length) {
@@ -468,6 +496,8 @@ const App = {
       this.showMappingDialog(headers, mapping, rows.slice(0, 5));
     } catch (err) {
       alert('Excel 解析失败：' + err.message);
+    } finally {
+      this.setLoading(false);
     }
     document.getElementById('fileInput').value = '';
   },
@@ -540,7 +570,7 @@ const App = {
     document.getElementById('mappingDialog').close();
     this.pendingImport = null;
     this.importWarnings = warnings;
-    this.setData(records);
+    await this.setData(records);
     this.showImportSummary(records.length, warnings);
   },
 
@@ -598,18 +628,24 @@ const App = {
     this.filterProduct?.setItems([...prodMap.values()].sort((a, b) => a.label.localeCompare(b.label)));
   },
 
-  setData(rows, meta) {
+  async setData(rows, meta) {
     localStorage.removeItem('dashboardSkipAutoLoad');
-    this.setLoading(false);
     this.allRows = rows;
-    document.getElementById('emptyState').classList.add('hidden');
-    document.getElementById('dashboard').classList.remove('hidden');
+    document.querySelectorAll('#emptyState').forEach(el => el.classList.add('hidden'));
+    document.querySelectorAll('#dashboard').forEach(el => el.classList.remove('hidden'));
     this.populateFilterOptions(rows);
 
     const sub = document.querySelector('.subtitle');
     if (sub) sub.textContent = APP_CONFIG.companyName;
 
-    this.refreshDashboard();
+    this.setLoading(true);
+    try {
+      await LazyLibs.loadEcharts();
+      DashboardCharts.ensureInit?.();
+      this.refreshDashboard();
+    } finally {
+      this.setLoading(false);
+    }
   },
 
   refreshDashboard() {
