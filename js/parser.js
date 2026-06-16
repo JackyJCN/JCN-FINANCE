@@ -112,9 +112,21 @@ const SalesParser = (() => {
     return { ...result, sheetName, rowCount: rows.length };
   }
 
-  async function importFromUrl(url, fileName, mapping) {
-    const res = await fetch(url);
+  async function importFromUrl(url, fileName, mapping, timeoutMs = 12000) {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    let res;
+    try {
+      res = await fetch(url, { signal: ctrl.signal });
+    } catch (err) {
+      if (err.name === 'AbortError') throw new Error(`读取超时：${url}`);
+      throw err;
+    } finally {
+      clearTimeout(timer);
+    }
     if (!res.ok) throw new Error(`无法读取 ${url}（${res.status}）`);
+    const ct = res.headers.get('content-type') || '';
+    if (/text\/html/i.test(ct)) throw new Error(`未找到数据文件：${url}`);
     const buffer = await res.arrayBuffer();
     return importFromArrayBuffer(buffer, fileName, mapping);
   }

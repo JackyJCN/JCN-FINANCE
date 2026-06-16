@@ -7,11 +7,41 @@ const App = {
   importWarnings: [],
 
   init() {
-    this.bindEvents();
-    this.initTheme();
-    this.initFilters();
-    this.initMultiSelects();
-    this.loadFromStorage();
+    try {
+      this.bindEvents();
+      this.initTheme();
+      this.initFilters();
+      this.initMultiSelects();
+      this.loadFromStorage();
+    } catch (err) {
+      console.error('应用初始化失败', err);
+      this.showEmptyState();
+      this.toast('页面初始化失败，请刷新后重试', 'error');
+    }
+  },
+
+  withTimeout(promise, ms, fallback) {
+    return Promise.race([
+      promise,
+      new Promise(resolve => setTimeout(() => resolve(fallback), ms))
+    ]);
+  },
+
+  isPublicSite() {
+    const h = location.hostname.toLowerCase();
+    return h.endsWith('github.io') || h.endsWith('github.pages.dev');
+  },
+
+  canAutoLoadBundled() {
+    if (this.isPublicSite()) return false;
+    const h = location.hostname.toLowerCase();
+    return h === 'localhost' || h === '127.0.0.1' || h === '[::1]';
+  },
+
+  ensureBootstrapped() {
+    const loading = document.getElementById('appLoading');
+    if (!loading || loading.classList.contains('hidden')) return;
+    this.showEmptyState();
   },
 
   initMultiSelects() {
@@ -113,8 +143,10 @@ const App = {
   },
 
   initFilters() {
-    document.getElementById('filterDateStart').value = APP_CONFIG.dataPeriod.start.slice(0, 7);
-    document.getElementById('filterDateEnd').value = APP_CONFIG.dataPeriod.end.slice(0, 7);
+    const start = document.getElementById('filterDateStart');
+    const end = document.getElementById('filterDateEnd');
+    if (start) start.value = APP_CONFIG.dataPeriod.start.slice(0, 7);
+    if (end) end.value = APP_CONFIG.dataPeriod.end.slice(0, 7);
   },
 
   getAiProviderPresets() {
@@ -308,8 +340,13 @@ const App = {
   async loadFromStorage() {
     this.setLoading(true);
     try {
-      const rows = await SalesParser.loadRecords();
-      const meta = await SalesParser.loadImportMeta();
+      const rows = await this.withTimeout(SalesParser.loadRecords(), 8000, null);
+      if (rows === null) {
+        console.warn('IndexedDB 读取超时');
+        this.showEmptyState();
+        return;
+      }
+      const meta = await this.withTimeout(SalesParser.loadImportMeta(), 5000, null);
       const revisionOk = meta?.dataRevision === APP_CONFIG.dataRevision;
       const schemaOk = SalesParser.recordsHaveQuantityField(rows);
       if (rows?.length && revisionOk && schemaOk) {
@@ -318,9 +355,11 @@ const App = {
       }
       if (rows?.length) {
         this.setData(rows, meta);
-        const upgraded = await this.tryUpgradeBundledData();
-        if (!upgraded) {
-          this.toast('当前为本地缓存；如需应用最新字段映射，请重新导入 Excel');
+        if (this.canAutoLoadBundled()) {
+          const upgraded = await this.tryUpgradeBundledData();
+          if (!upgraded) {
+            this.toast('当前为本地缓存；如需应用最新字段映射，请重新导入 Excel');
+          }
         }
         return;
       }
@@ -342,7 +381,7 @@ const App = {
 
   /** 数据版本变更时，后台从 bundled Excel 静默升级 */
   async tryUpgradeBundledData() {
-    if (this.shouldSkipAutoLoad()) return false;
+    if (this.shouldSkipAutoLoad() || !this.canAutoLoadBundled()) return false;
     const url = APP_CONFIG.excelSource?.bundledUrl;
     if (!url || location.protocol === 'file:') return false;
     try {
@@ -365,21 +404,21 @@ const App = {
 
   /** IndexedDB 无数据时，自动加载 data/ 目录下的 Excel（需通过本地服务器访问） */
   async loadBundledData() {
-    if (this.shouldSkipAutoLoad()) {
-      this.showEmptyState();
-      return;
-    }
-    const url = APP_CONFIG.excelSource?.bundledUrl;
-    if (!url) {
-      this.showEmptyState();
-      return;
-    }
-    if (location.protocol === 'file:') {
-      this.showEmptyState();
-      this.toast('请双击「启动看板.bat」打开，不要直接双击 index.html', 'error');
-      return;
-    }
     try {
+      if (this.shouldSkipAutoLoad() || !this.canAutoLoadBundled()) {
+        this.showEmptyState();
+        return;
+      }
+      const url = APP_CONFIG.excelSource?.bundledUrl;
+      if (!url) {
+        this.showEmptyState();
+        return;
+      }
+      if (location.protocol === 'file:') {
+        this.showEmptyState();
+        this.toast('请双击「启动看板.bat」打开，不要直接双击 index.html', 'error');
+        return;
+      }
       const mapping = APP_CONFIG.excelSource.defaultMapping;
       const { records, fileName } = await SalesParser.importFromUrl(
         url,
@@ -393,7 +432,11 @@ const App = {
     } catch (err) {
       console.warn('自动加载 Excel 失败', err);
       this.showEmptyState();
-      this.toast('未找到本地缓存，请导入 Excel 文件', 'error');
+      if (!this.isPublicSite()) {
+        this.toast('未找到本地缓存，请导入 Excel 文件', 'error');
+      }
+    } finally {
+      this.ensureBootstrapped();
     }
   },
 
